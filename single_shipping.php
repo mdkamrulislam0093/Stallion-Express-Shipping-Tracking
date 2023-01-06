@@ -160,6 +160,8 @@ div#stallion_postage label {
     		});
 
     		$('.stallion_postage_btn').click(function(e){
+                $('.stallion_postage_btn').after('<div class="lds-ring"><div></div><div></div><div></div><div></div></div>');
+
     			e.preventDefault();
 
 		        $.post(
@@ -176,9 +178,13 @@ div#stallion_postage label {
 		           	size_unit: $('.stallion-size-unit').val()       
 		          },
 		          function (result){
+                    $('.lds-ring').hide();
+
 		        	if ( result == 'Success' ) {
 		        		location.reload();
-		        	} 			
+		        	} else {
+                        $('.stallion_postage_btn').after('<div>'+ result +'</div>');
+                    }
 					console.log(result);
 		          }
 		        );   
@@ -242,13 +248,13 @@ function stallion_express_create_shipment_callback(){
  
 
     $order_details = [
-        'name' => $order_data['billing']['first_name'],
-        'address1' => $order_data['billing']['address_1'],
-        'address2' => $order_data['billing']['address_2'],
-        'city' => $order_data['billing']['city'],
-        'province_code' => $order_data['billing']['state'],
-        'postal_code' => $order_data['billing']['postcode'],
-        'country_code' => $order_data['billing']['country'],
+        'name' => sprintf("%s %s", $order_data['shipping']['first_name'], $order_data['shipping']['last_name']),
+        'address1' => $order_data['shipping']['address_1'],
+        'address2' => $order_data['shipping']['address_2'],
+        'city' => $order_data['shipping']['city'],
+        'province_code' => $order_data['shipping']['state'],
+        'postal_code' => $order_data['shipping']['postcode'],
+        'country_code' => $order_data['shipping']['country'],
         'order_id' => $_REQUEST['order_id'],
         'weight_unit' => 'lbs',
         'weight' => $stallion_weight,
@@ -267,7 +273,7 @@ function stallion_express_create_shipment_callback(){
         'is_fba' => false,
         'insured' => true,
         'customs_lines' => $order_content,
-        'region' => 'BC',
+        'region' => 'ON',
     ];
 
 	if ( !empty($stallion_weight) && !empty($stallion_length) && !empty($stallion_width) && !empty($stallion_height) && !empty($size_unit) ) {
@@ -288,6 +294,7 @@ function stallion_express_create_shipment_callback(){
 
 	    if( is_wp_error( $get_stallion_shipments ) ){
 	        error_log('Failed access Token: '. print_r($get_stallion_shipments, true));
+
 	    } else {
 	        $stallion_shipments_body = json_decode( wp_remote_retrieve_body( $get_stallion_shipments ), true );
 	        
@@ -305,10 +312,32 @@ function stallion_express_create_shipment_callback(){
 				$headers = array('Content-Type: text/html; charset=UTF-8');
 				$message = "Hi {$order_data['billing']['first_name']}<br> Here is your Tracking Code :  {$stallion_shipments_body['tracking_code']}";
 				wp_mail( $order_data['billing']['email'], 'The Boudoir Album Shipment Tracking Code', $message, $headers);
+
+
+// kamrul
+
+                $order = wc_get_order( $order_id );
+                $order_ids = get_post_meta( $order_id, 'jk_marge_ids', true );
+
+//                 if ( $result['success'] == 1 ) {
+                    $message = 'Dear Customer, <br>
+                                This is a notice to let you know that your orders: <br>
+                                '. $order_id .', '. implode(", ", $order_ids) .' have been merged into one in order for you to receive your items in one shipment. <br> Here is your updated tracking code <strong><a href="https://tools.usps.com/go/TrackConfirmAction?tRef=fullpage&tLc=2&text28777=&tLabels='. get_post_meta( $order_id, 'stallion_tracking_code', true ) .'" target="_blank">'. get_post_meta( $order_id, 'stallion_tracking_code', true ) .'</a></strong><br><br>
+                                Thank you for your business, <br>
+                                The Boudoir Album<br>
+                                <a href="mailto:info@theboudoiralbum.com">info@theboudoiralbum.com</a>';
+
+                    wp_mail( $order->get_billing_email(), 'The Boudoir Album ordered merge', $message, [
+                        'Content-Type: text/html; charset=UTF-8' ] );
+//                 }
+// kamrul      
+
 				
 				echo "Success";
 
-	        }
+	        } else {
+                echo $stallion_shipments_body['errors'][0];
+            }
 
 	    }
 
@@ -342,14 +371,16 @@ function stallion_express_postage_callback(){
 	$order_data = $order->get_data();
 
 
+    // error_log('order_info : ' . print_r($order_data, true));
+
 	$order_details = [
-       	'name' => $order_data['billing']['first_name'],
-        'address1' => $order_data['billing']['address_1'],
-        'address2' => $order_data['billing']['address_2'],
-        'city' => $order_data['billing']['city'],
-        'province_code' => $order_data['billing']['state'],
-        'postal_code' => $order_data['billing']['postcode'],
-        'country_code' => $order_data['billing']['country'],
+       	'name' => sprintf("%s %s", $order_data['shipping']['first_name'], $order_data['shipping']['last_name']),
+        'address1' => $order_data['shipping']['address_1'],
+        'address2' => $order_data['shipping']['address_2'],
+        'city' => $order_data['shipping']['city'],
+        'province_code' => $order_data['shipping']['state'],
+        'postal_code' => $order_data['shipping']['postcode'],
+        'country_code' => $order_data['shipping']['country'],
         'weight_unit' => 'lbs',
         'weight' => $stallion_weight,
         'length' => $stallion_length,
@@ -363,7 +394,7 @@ function stallion_express_postage_callback(){
         'signature_confirmation' => false,
         'purchase_label' => true,
         'insured' => true,
-        'region' => 'BC',
+        'region' => 'ON',
 	];
 
 
